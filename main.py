@@ -1,6 +1,7 @@
 import tkinter as tk
 from time import sleep
 from copy import deepcopy
+from random import randint
 
 
 class PixelWindow(tk.Canvas):
@@ -33,13 +34,36 @@ class PixelWindow(tk.Canvas):
 
         for row in range(self.__rows):
             for col in range(self.__cols):
-                # Falling down rule
                 #TODO set the value 1 to stationary block, and value 2 to the falling block
                 if (self.__matrix[row][col] != 0):
-                    if (row + 1 < self.__rows and self.__matrix[row + 1][col] == 0):
+                    if (row + 1 >= self.__rows):
+                        continue
+                    # Falling down rule
+                    if (self.__matrix[row + 1][col] == 0):
                         tempMatrix[row + 1][col] = self.__matrix[row][col]
                         tempMatrix[row][col] = 0
-        
+                    else: # Falling to the side rule
+                        if (col + 1 >= self.__cols):
+                            right = -1
+                        else:
+                            right = self.__matrix[row + 1][col + 1]
+
+                        if (col - 1 < 0):
+                            left = -1
+                        else:
+                            left = self.__matrix[row + 1][col - 1]
+                            
+                        if (right != 0):
+                            if (left == 0):
+                                tempMatrix[row + 1][col - 1] = self.__matrix[row][col]
+                                tempMatrix[row][col] = 0
+                        else:
+                            if (left != 0):
+                                tempMatrix[row + 1][col + 1] = self.__matrix[row][col]
+                                tempMatrix[row][col] = 0
+                            else:
+                                tempMatrix[row + 1][col + (1 if randint(1, 2) == 2 else -1)] = self.__matrix[row][col]
+                                tempMatrix[row][col] = 0
 
 
         self.__matrix = tempMatrix
