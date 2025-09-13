@@ -99,7 +99,33 @@ class PixelWindow(tk.Canvas):
                     case Block.WALL: # It is stationery
                         pass
                     case Block.WATER:
-                        pass
+                        # Falling down rule
+                        if (row + 1 < self.__rows and self.__matrix[row + 1][col] == Block.AIR):
+                            tempMatrix[row + 1][col] = Block.WATER
+                            tempMatrix[row][col] = Block.AIR
+                        else: # Moving to the side rule
+                            if (col + 1 >= self.__cols):
+                                right = -1
+                            else:
+                                right = tempMatrix[row][col + 1]
+
+                            if (col - 1 < 0):
+                                left = -1
+                            else:
+                                left = tempMatrix[row][col - 1]
+                                
+                            if (right != Block.AIR):
+                                if (left == Block.AIR):
+                                    tempMatrix[row][col - 1] = Block.WATER
+                                    tempMatrix[row][col] = Block.AIR
+                            else:
+                                if (left != Block.AIR):
+                                    tempMatrix[row][col + 1] = Block.WATER
+                                    tempMatrix[row][col] = Block.AIR
+                                else:
+                                    # Choosing randomly either to the left or right down
+                                    tempMatrix[row][col + (1 if randint(1, 2) == 2 else -1)] = Block.WATER
+                                    tempMatrix[row][col] = Block.AIR
                     case _:
                         pass
 
