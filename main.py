@@ -2,9 +2,9 @@ import tkinter as tk
 from time import sleep
 from copy import deepcopy
 from random import randint
-from enum import Enum
+from enum import IntEnum
 
-class Block(Enum):
+class Block(IntEnum):
     AIR = 0
     SAND = 1
     WALL = 2
@@ -26,10 +26,27 @@ class PixelWindow(tk.Canvas):
             Block.WALL: "grey",
             Block.WATER: "light blue"
         }
+        self.__curBlock = Block.SAND
 
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
                          bg= background)
+
+    def createSelectionMenu(self) -> None:
+        def changeBlock():
+            self.__curBlock = Block(iVar.get())
+
+        frame1 = tk.Frame(self.__master)
+        frame1.pack()
+        iVar = tk.IntVar()
+        sandButton = tk.Radiobutton(frame1, text= "Sand", variable= iVar, value= int(Block.SAND), command= changeBlock)
+        sandButton.pack(side= "left")
+        wallButton = tk.Radiobutton(frame1, text= "Wall", variable= iVar, value= int(Block.WALL), command= changeBlock)
+        wallButton.pack(side= "left")
+        waterButton = tk.Radiobutton(frame1, text= "Water", variable= iVar, value= int(Block.WATER), command= changeBlock)
+        waterButton.pack(side= "left")
+
     
+
     def fillMatrix(self, matrix: list[list[Block]]) -> None:
         for _ in range(self.__rows):
             row = [Block.AIR] * self.__cols
@@ -127,6 +144,7 @@ if (__name__ == "__main__"):
 
     pixelW = PixelWindow(root, rows, columns, "black", 10)
     pixelW.pack()
+    pixelW.createSelectionMenu()
 
     pixelW.bind("<B1-Motion>", lambda e : createBlock(e, pixelW, Block.SAND, "<B1-Motion>"))
     pixelW.bind("<B3-Motion>", lambda e : createBlock(e, pixelW, Block.WALL, "<B3-Motion>"))
