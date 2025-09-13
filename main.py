@@ -31,6 +31,8 @@ class PixelWindow(tk.Canvas):
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
                          bg= background)
 
+        self.bind("<B1-Motion>", self.createBlock)
+
     def createSelectionMenu(self) -> None:
         def changeBlock():
             self.__curBlock = Block(iVar.get())
@@ -120,15 +122,13 @@ class PixelWindow(tk.Canvas):
     def getBlockSize(self) -> int:
         return self.__blockSize
 
+    def createBlock(self, e: tk.Event) -> None:
+        self.unbind("<B1-Motion>")
+        row = e.y // self.getBlockSize()
+        col = e.x // self.getBlockSize()
 
-
-def createBlock(e: tk.Event, w: PixelWindow, block: Block, event: str) -> None:
-    w.unbind(event)
-    row = e.y // w.getBlockSize()
-    col = e.x // w.getBlockSize()
-
-    w.fillBlock(row, col, block)
-    w.bind(event, lambda e : createBlock(e, w, block, event))
+        self.fillBlock(row, col, self.__curBlock)
+        self.bind("<B1-Motion>", self.createBlock)
 
 def terminate(e: tk.Event) -> None:
     global running
@@ -146,8 +146,6 @@ if (__name__ == "__main__"):
     pixelW.pack()
     pixelW.createSelectionMenu()
 
-    pixelW.bind("<B1-Motion>", lambda e : createBlock(e, pixelW, Block.SAND, "<B1-Motion>"))
-    pixelW.bind("<B3-Motion>", lambda e : createBlock(e, pixelW, Block.WALL, "<B3-Motion>"))
     root.bind("<Escape>", terminate)
 
     while (running):
