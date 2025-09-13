@@ -2,6 +2,14 @@ import tkinter as tk
 from time import sleep
 from copy import deepcopy
 from random import randint
+from enum import Enum
+
+class Block(Enum):
+    AIR = 0
+    SAND = 1
+    WALL = 2
+    WATER = 3
+
 
 
 class PixelWindow(tk.Canvas):
@@ -11,59 +19,70 @@ class PixelWindow(tk.Canvas):
         self.__rows = rows
         self.__blockSize = blockSize
         self.__bg = background
-        self.__matrix: list[list[int]] = []
+        self.__matrix: list[list[Block]] = []
         self.fillMatrix(self.__matrix)
+        self.__colors = {
+            Block.SAND : "yellow",
+            Block.WALL: "grey",
+            Block.WATER: "light blue"
+        }
 
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
                          bg= background)
     
-    def fillMatrix(self, matrix: list[list[int]]) -> None:
+    def fillMatrix(self, matrix: list[list[Block]]) -> None:
         for _ in range(self.__rows):
-            row: list[int] = []
-            for __ in range(self.__cols):
-                row.append(0)
+            row = [Block.AIR] * self.__cols
             matrix.append(row)
 
-    def fillCell(self, row: int, column: int, value: int) -> None:
+    def fillCell(self, row: int, column: int, value: Block) -> None:
         try:
+            if (self.__matrix[row][column] != Block.AIR): return
             self.__matrix[row][column] = value
         except IndexError:
             pass
     def simulate(self) -> None:
-        tempMatrix: list[list[int]] = deepcopy(self.__matrix)
+        tempMatrix: list[list[Block]] = deepcopy(self.__matrix)
 
         for row in range(self.__rows):
             for col in range(self.__cols):
-                #TODO set the value 1 to stationary block, and value 2 to the falling block
-                if (self.__matrix[row][col] != 0):
-                    if (row + 1 >= self.__rows):
-                        continue
-                    # Falling down rule
-                    if (self.__matrix[row + 1][col] == 0):
-                        tempMatrix[row + 1][col] = self.__matrix[row][col]
-                        tempMatrix[row][col] = 0
-                    else: # Falling to the side rule
-                        if (col + 1 >= self.__cols):
-                            right = -1
-                        else:
-                            right = self.__matrix[row + 1][col + 1]
-
-                        if (col - 1 < 0):
-                            left = -1
-                        else:
-                            left = self.__matrix[row + 1][col - 1]
-                            
-                        if (right != 0):
-                            if (left == 0):
-                                tempMatrix[row + 1][col - 1] = self.__matrix[row][col]
-                                tempMatrix[row][col] = 0
-                        else:
-                            if (left != 0):
-                                tempMatrix[row + 1][col + 1] = self.__matrix[row][col]
-                                tempMatrix[row][col] = 0
+                match (self.__matrix[row][col]):
+                    case Block.SAND:
+                        if (row + 1 >= self.__rows):
+                            continue
+                        # Falling down rule
+                        if (self.__matrix[row + 1][col] == Block.AIR):
+                            tempMatrix[row + 1][col] = Block.SAND
+                            tempMatrix[row][col] = Block.AIR
+                        else: # Falling to the side rule
+                            if (col + 1 >= self.__cols):
+                                right = -1
                             else:
-                                tempMatrix[row + 1][col + (1 if randint(1, 2) == 2 else -1)] = self.__matrix[row][col]
-                                tempMatrix[row][col] = 0
+                                right = self.__matrix[row + 1][col + 1]
+
+                            if (col - 1 < 0):
+                                left = -1
+                            else:
+                                left = self.__matrix[row + 1][col - 1]
+                                
+                            if (right != Block.AIR):
+                                if (left == Block.AIR):
+                                    tempMatrix[row + 1][col - 1] = Block.SAND
+                                    tempMatrix[row][col] = Block.AIR
+                            else:
+                                if (left != Block.AIR):
+                                    tempMatrix[row + 1][col + 1] = Block.SAND
+                                    tempMatrix[row][col] = Block.AIR
+                                else:
+                                    # Choosing randomly either to the left or right down
+                                    tempMatrix[row + 1][col + (1 if randint(1, 2) == 2 else -1)] = Block.SAND
+                                    tempMatrix[row][col] = Block.AIR
+                    case Block.WALL: # It is stationery
+                        pass
+                    case Block.WATER:
+                        pass
+                    case _:
+                        pass
 
 
         self.__matrix = tempMatrix
@@ -72,14 +91,14 @@ class PixelWindow(tk.Canvas):
         self.delete("Cell")
         for row in range(self.__rows):
             for col in range(self.__cols):
-                if (self.__matrix[row][col] != 0):
+                if (self.__matrix[row][col] != Block.AIR):
                     self.create_rectangle(col * self.__blockSize,
                                           row * self.__blockSize,
                                           (col + 1) * self.__blockSize,
                                           (row + 1) * self.__blockSize,
                                           fill= "white",
                                           width= 0,
-                                          tags= ["Cell"])
+                                          tags= [f"Cell"])
     
     def getBlockSize(self) -> int:
         return self.__blockSize
@@ -91,25 +110,27 @@ def createCell(e: tk.Event, w: PixelWindow) -> None:
     row = e.y // w.getBlockSize()
     col = e.x // w.getBlockSize()
 
-    w.fillCell(row, col, 1)
+    w.fillCell(row, col, Block.SAND)
     w.bind("<B1-Motion>", lambda e : createCell(e, w))
+
 
 running: bool = True
 
-root = tk.Tk()
+if (__name__ == "__main__"):
+    root = tk.Tk()
 
-rows = 70
-columns = 50
+    rows = 70
+    columns = 50
 
-pixelW = PixelWindow(root, rows, columns, "black", 10)
-pixelW.pack()
+    pixelW = PixelWindow(root, rows, columns, "black", 10)
+    pixelW.pack()
 
-pixelW.bind("<B1-Motion>", lambda e : createCell(e, pixelW))
+    pixelW.bind("<B1-Motion>", lambda e : createCell(e, pixelW))
 
-while (running):
-    pixelW.simulate()
-    pixelW.render()
-    pixelW.update()
-    sleep(0.01)
+    while (running):
+        pixelW.simulate()
+        pixelW.render()
+        pixelW.update()
+        sleep(0.01)
 
-root.mainloop()
+    root.mainloop()
