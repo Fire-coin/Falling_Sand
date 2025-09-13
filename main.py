@@ -35,7 +35,7 @@ class PixelWindow(tk.Canvas):
             row = [Block.AIR] * self.__cols
             matrix.append(row)
 
-    def fillCell(self, row: int, column: int, value: Block) -> None:
+    def fillBlock(self, row: int, column: int, value: Block) -> None:
         try:
             if (self.__matrix[row][column] != Block.AIR): return
             self.__matrix[row][column] = value
@@ -96,7 +96,7 @@ class PixelWindow(tk.Canvas):
                                           row * self.__blockSize,
                                           (col + 1) * self.__blockSize,
                                           (row + 1) * self.__blockSize,
-                                          fill= "white",
+                                          fill= self.__colors[self.__matrix[row][col]],
                                           width= 0,
                                           tags= [f"Cell"])
     
@@ -105,32 +105,39 @@ class PixelWindow(tk.Canvas):
 
 
 
-def createCell(e: tk.Event, w: PixelWindow) -> None:
-    w.unbind("<B1-Motion>")
+def createBlock(e: tk.Event, w: PixelWindow, block: Block, event: str) -> None:
+    w.unbind(event)
     row = e.y // w.getBlockSize()
     col = e.x // w.getBlockSize()
 
-    w.fillCell(row, col, Block.SAND)
-    w.bind("<B1-Motion>", lambda e : createCell(e, w))
+    w.fillBlock(row, col, block)
+    w.bind(event, lambda e : createBlock(e, w, block, event))
 
+def terminate(e: tk.Event) -> None:
+    global running
+    running = False
 
-running: bool = True
 
 if (__name__ == "__main__"):
+    global running
+    running = True
     root = tk.Tk()
-
     rows = 70
     columns = 50
 
     pixelW = PixelWindow(root, rows, columns, "black", 10)
     pixelW.pack()
 
-    pixelW.bind("<B1-Motion>", lambda e : createCell(e, pixelW))
+    pixelW.bind("<B1-Motion>", lambda e : createBlock(e, pixelW, Block.SAND, "<B1-Motion>"))
+    pixelW.bind("<B3-Motion>", lambda e : createBlock(e, pixelW, Block.WALL, "<B3-Motion>"))
+    root.bind("<Escape>", terminate)
 
     while (running):
         pixelW.simulate()
         pixelW.render()
         pixelW.update()
         sleep(0.01)
+    
+    root.destroy()
 
     root.mainloop()
