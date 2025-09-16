@@ -5,6 +5,7 @@ from random import randint
 from enum import IntEnum
 
 class Block(IntEnum):
+    MOVED = -1
     AIR = 0
     SAND = 1
     WALL = 2
@@ -28,6 +29,8 @@ class PixelWindow(tk.Canvas):
         }
         self.__curBlock = Block.SAND
 
+        self.lighter_sand_blocks: set[Block] = set((Block.AIR, Block.WATER))
+
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
                          bg= background)
 
@@ -39,7 +42,9 @@ class PixelWindow(tk.Canvas):
 
         frame1 = tk.Frame(self.__master)
         frame1.pack()
-        iVar = tk.IntVar()
+        iVar = tk.IntVar(value= 1)
+        airButton = tk.Radiobutton(frame1, text= "Air", variable= iVar, value= int(Block.AIR), command= changeBlock)
+        airButton.pack(side= "left")
         sandButton = tk.Radiobutton(frame1, text= "Sand", variable= iVar, value= int(Block.SAND), command= changeBlock)
         sandButton.pack(side= "left")
         wallButton = tk.Radiobutton(frame1, text= "Wall", variable= iVar, value= int(Block.WALL), command= changeBlock)
@@ -56,7 +61,7 @@ class PixelWindow(tk.Canvas):
 
     def fillBlock(self, row: int, column: int, value: Block) -> None:
         try:
-            if (self.__matrix[row][column] != Block.AIR): return
+            if (self.__matrix[row][column] != Block.AIR and self.__curBlock != Block.AIR): return
             self.__matrix[row][column] = value
         except IndexError:
             pass
@@ -70,32 +75,40 @@ class PixelWindow(tk.Canvas):
                         if (row + 1 >= self.__rows):
                             continue
                         # Falling down rule
-                        if (self.__matrix[row + 1][col] == Block.AIR):
-                            tempMatrix[row + 1][col] = Block.SAND
-                            tempMatrix[row][col] = Block.AIR
-                        else: # Falling to the side rule
-                            if (col + 1 >= self.__cols):
-                                right = -1
-                            else:
-                                right = self.__matrix[row + 1][col + 1]
-
-                            if (col - 1 < 0):
-                                left = -1
-                            else:
-                                left = self.__matrix[row + 1][col - 1]
-                                
-                            if (right != Block.AIR):
-                                if (left == Block.AIR):
-                                    tempMatrix[row + 1][col - 1] = Block.SAND
-                                    tempMatrix[row][col] = Block.AIR
-                            else:
-                                if (left != Block.AIR):
-                                    tempMatrix[row + 1][col + 1] = Block.SAND
-                                    tempMatrix[row][col] = Block.AIR
+                        match (self.__matrix[row + 1][col]):
+                            case Block.AIR:
+                                tempMatrix[row + 1][col] = Block.SAND
+                                tempMatrix[row][col] = Block.AIR
+                            case Block.WATER:
+                                tempMatrix[row + 1][col] = Block.SAND
+                                tempMatrix[row][col] = Block.WATER
+                                self.__matrix[row + 1][col] = Block.MOVED
+                            case Block.MOVED:
+                                pass
+                            case _: # Falling to the side rule
+                                if (col + 1 >= self.__cols):
+                                    right = -1
                                 else:
-                                    # Choosing randomly either to the left or right down
-                                    tempMatrix[row + 1][col + (1 if randint(1, 2) == 2 else -1)] = Block.SAND
-                                    tempMatrix[row][col] = Block.AIR
+                                    right = self.__matrix[row + 1][col + 1]
+
+                                if (col - 1 < 0):
+                                    left = -1
+                                else:
+                                    left = self.__matrix[row + 1][col - 1]
+                                    
+                                if (right not in self.lighter_sand_blocks):
+                                    if (left in self.lighter_sand_blocks):
+                                        tempMatrix[row + 1][col - 1] = Block.SAND
+                                        tempMatrix[row][col] = Block(left)
+                                else:
+                                    if (left not in self.lighter_sand_blocks):
+                                        tempMatrix[row + 1][col + 1] = Block.SAND
+                                        tempMatrix[row][col] = Block(right)
+                                    else:
+                                        # Choosing randomly either to the left or right down
+                                        choice = randint(1, 2)
+                                        tempMatrix[row + 1][col + (1 if choice == 2 else -1)] = Block.SAND
+                                        tempMatrix[row][col] = Block(right) if choice == 2 else Block(left)
                     case Block.WALL: # It is stationery
                         pass
                     case Block.WATER:
@@ -168,7 +181,8 @@ if (__name__ == "__main__"):
     rows = 70
     columns = 50
 
-    pixelW = PixelWindow(root, rows, columns, "black", 10)
+    BLOCK_SIZE = 10
+    pixelW = PixelWindow(root, rows, columns, "black", BLOCK_SIZE)
     pixelW.pack()
     pixelW.createSelectionMenu()
 
