@@ -10,6 +10,7 @@ class Block(IntEnum):
     SAND = 1
     WALL = 2
     WATER = 3
+    ACID = 4
 
 
 
@@ -25,11 +26,21 @@ class PixelWindow(tk.Canvas):
         self.__colors = {
             Block.SAND : "yellow",
             Block.WALL: "grey",
-            Block.WATER: "light blue"
+            Block.WATER: "light blue",
+            Block.ACID: "#8FFE09"
         }
         self.__curBlock = Block.SAND
+        self.disolvable = set(Block._member_map_.values())
+        self.disolvable.remove(Block.ACID)
+        self.disolvable.remove(Block.AIR)
+        self.disolvable.remove(Block.MOVED)
 
-        self.lighter_sand_blocks: set[Block] = set((Block.AIR, Block.WATER))
+        self.lighterMap: dict[Block, set[Block]] = {
+           Block.SAND : set((Block.AIR, Block.WATER, Block.ACID)),
+           Block.WATER : set((Block.AIR, Block.ACID)) 
+        }
+
+        # self.lighterMap[Block.SAND]: set[Block] = set((Block.AIR, Block.WATER, Block.ACID))
 
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
                          bg= background)
@@ -51,6 +62,8 @@ class PixelWindow(tk.Canvas):
         wallButton.pack(side= "left")
         waterButton = tk.Radiobutton(frame1, text= "Water", variable= iVar, value= int(Block.WATER), command= changeBlock)
         waterButton.pack(side= "left")
+        acidButton = tk.Radiobutton(frame1, text= "Acid", variable= iVar, value= int(Block.ACID), command= changeBlock)
+        acidButton.pack(side= "left")
 
     
 
@@ -65,8 +78,33 @@ class PixelWindow(tk.Canvas):
             self.__matrix[row][column] = value
         except IndexError:
             pass
+    
+    def liquidSpill(self, liquid: Block, row: int, col: int) -> None:
+        if (col + 1 >= self.__cols):
+            right = -1
+        else:
+            right = self.tempMatrix[row][col + 1]
+
+        if (col - 1 < 0):
+            left = -1
+        else:
+            left = self.tempMatrix[row][col - 1]
+            
+        if (right != Block.AIR):
+            if (left == Block.AIR):
+                self.tempMatrix[row][col - 1] = liquid
+                self.tempMatrix[row][col] = Block.AIR
+        else:
+            if (left != Block.AIR):
+                self.tempMatrix[row][col + 1] = liquid
+                self.tempMatrix[row][col] = Block.AIR
+            else:
+                # Choosing randomly either to the left or right down
+                self.tempMatrix[row][col + (1 if randint(1, 2) == 2 else -1)] = liquid
+                self.tempMatrix[row][col] = Block.AIR
+
     def simulate(self) -> None:
-        tempMatrix: list[list[Block]] = deepcopy(self.__matrix)
+        self.tempMatrix: list[list[Block]] = deepcopy(self.__matrix)
 
         for row in range(self.__rows):
             for col in range(self.__cols):
@@ -77,12 +115,13 @@ class PixelWindow(tk.Canvas):
                         # Falling down rule
                         match (self.__matrix[row + 1][col]):
                             case Block.AIR:
-                                tempMatrix[row + 1][col] = Block.SAND
-                                tempMatrix[row][col] = Block.AIR
+                                self.tempMatrix[row + 1][col] = Block.SAND
+                                self.tempMatrix[row][col] = Block.AIR
                             case Block.WATER:
-                                tempMatrix[row + 1][col] = Block.SAND
-                                tempMatrix[row][col] = Block.WATER
+                                self.tempMatrix[row + 1][col] = Block.SAND
+                                self.tempMatrix[row][col] = Block.WATER
                                 self.__matrix[row + 1][col] = Block.MOVED
+                                self.__matrix[row][col] = Block.MOVED
                             case Block.MOVED:
                                 pass
                             case _: # Falling to the side rule
@@ -96,54 +135,80 @@ class PixelWindow(tk.Canvas):
                                 else:
                                     left = self.__matrix[row + 1][col - 1]
                                     
-                                if (right not in self.lighter_sand_blocks):
-                                    if (left in self.lighter_sand_blocks):
-                                        tempMatrix[row + 1][col - 1] = Block.SAND
-                                        tempMatrix[row][col] = Block(left)
+                                if (right not in self.lighterMap[Block.SAND]):
+                                    if (left in self.lighterMap[Block.SAND]):
+                                        self.tempMatrix[row + 1][col - 1] = Block.SAND
+                                        self.tempMatrix[row][col] = Block(left)
                                 else:
-                                    if (left not in self.lighter_sand_blocks):
-                                        tempMatrix[row + 1][col + 1] = Block.SAND
-                                        tempMatrix[row][col] = Block(right)
+                                    if (left not in self.lighterMap[Block.SAND]):
+                                        self.tempMatrix[row + 1][col + 1] = Block.SAND
+                                        self.tempMatrix[row][col] = Block(right)
                                     else:
                                         # Choosing randomly either to the left or right down
                                         choice = randint(1, 2)
-                                        tempMatrix[row + 1][col + (1 if choice == 2 else -1)] = Block.SAND
-                                        tempMatrix[row][col] = Block(right) if choice == 2 else Block(left)
+                                        self.tempMatrix[row + 1][col + (1 if choice == 2 else -1)] = Block.SAND
+                                        self.tempMatrix[row][col] = Block(right) if choice == 2 else Block(left)
                     case Block.WALL: # It is stationery
                         pass
                     case Block.WATER:
                         # Falling down rule
-                        if (row + 1 < self.__rows and self.__matrix[row + 1][col] == Block.AIR):
-                            tempMatrix[row + 1][col] = Block.WATER
-                            tempMatrix[row][col] = Block.AIR
+                        if (row + 1 < self.__rows and self.__matrix[row + 1][col] in self.lighterMap[Block.WATER]):
+                            match self.__matrix[row + 1][col]:
+                                case Block.AIR:
+                                    self.tempMatrix[row + 1][col] = Block.WATER
+                                    self.tempMatrix[row][col] = Block.AIR
+                                case Block.ACID:
+                                    self.tempMatrix[row + 1][col] = Block.AIR
+                                    self.tempMatrix[row][col] = Block.AIR
+                                    self.__matrix[row + 1][col] = Block.MOVED
+                                case _:
+                                    pass
                         else: # Moving to the side rule
+                            self.liquidSpill(Block.WATER, row, col)
+                    case Block.ACID:
+                        if (row + 1 >= self.__rows or self.__matrix[row + 1][col] == Block.ACID):
                             if (col + 1 >= self.__cols):
-                                right = -1
+                                right = Block.ACID
                             else:
-                                right = tempMatrix[row][col + 1]
+                                right = self.tempMatrix[row][col + 1]
 
                             if (col - 1 < 0):
-                                left = -1
+                                left = Block.ACID
                             else:
-                                left = tempMatrix[row][col - 1]
-                                
-                            if (right != Block.AIR):
-                                if (left == Block.AIR):
-                                    tempMatrix[row][col - 1] = Block.WATER
-                                    tempMatrix[row][col] = Block.AIR
-                            else:
-                                if (left != Block.AIR):
-                                    tempMatrix[row][col + 1] = Block.WATER
-                                    tempMatrix[row][col] = Block.AIR
+                                left = self.tempMatrix[row][col - 1]
+                            
+
+
+                            if (right != Block.ACID):
+                                if (left != Block.ACID):
+                                    result = randint(1, 2)
+                                    self.tempMatrix[row][col + (1 if result == 2 else -1)] = (Block.AIR if (right if result == 2 else left) in self.disolvable else Block.ACID)
+                                    self.tempMatrix[row][col] = Block.AIR
+                                    if (result == 2):
+                                        self.__matrix[row][col + 1] = Block.MOVED
                                 else:
-                                    # Choosing randomly either to the left or right down
-                                    tempMatrix[row][col + (1 if randint(1, 2) == 2 else -1)] = Block.WATER
-                                    tempMatrix[row][col] = Block.AIR
+                                    self.tempMatrix[row][col + 1] = (Block.AIR if right in self.disolvable else Block.ACID)
+                                    self.tempMatrix[row][col] = Block.AIR
+                                    self.__matrix[row][col + 1] = Block.MOVED
+                            else:
+                                if (left != Block.ACID):
+                                    self.tempMatrix[row][col - 1] = (Block.AIR if left in self.disolvable else Block.ACID)
+                                    self.tempMatrix[row][col] = Block.AIR
+                            continue
+
+                        # Falling down rule
+                        if (self.__matrix[row + 1][col] in self.disolvable):
+                            self.tempMatrix[row][col] = Block.AIR
+                            self.tempMatrix[row + 1][col] = Block.AIR
+                            self.__matrix[row + 1][col] = Block.MOVED
+                        else:
+                            self.tempMatrix[row][col] = Block.AIR
+                            self.tempMatrix[row + 1][col] = Block.ACID
                     case _:
                         pass
 
 
-        self.__matrix = tempMatrix
+        self.__matrix = self.tempMatrix
 
     def render(self) -> None:
         self.delete("Cell")
