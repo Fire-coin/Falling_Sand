@@ -23,7 +23,7 @@ class PixelWindow(tk.Canvas):
         self.__rows = rows
         self.__blockSize = blockSize
         self.__bg = background
-        self.__radius: int = 3
+        self.__radius: int = 1
         self.__matrix: list[list[Block]] = []
         self.fillMatrix(self.__matrix)
         self.__colors = {
@@ -42,7 +42,7 @@ class PixelWindow(tk.Canvas):
 
         self.lighterMap: dict[Block, set[Block]] = {
            Block.SAND : set((Block.AIR, Block.WATER, Block.ACID)),
-           Block.WATER : set((Block.AIR, Block.ACID)) 
+           Block.WATER : set((Block.AIR, Block.ACID, Block.LAVA)) 
         }
 
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
@@ -179,6 +179,10 @@ class PixelWindow(tk.Canvas):
                                     self.tempMatrix[row + 1][col] = Block.AIR
                                     self.tempMatrix[row][col] = Block.AIR
                                     self.__matrix[row + 1][col] = Block.MOVED
+                                case Block.LAVA:
+                                    self.tempMatrix[row + 1][col] = Block.AIR
+                                    self.tempMatrix[row][col] = Block.STONE
+                                    self.__matrix[row + 1][col] = Block.MOVED
                                 case _:
                                     pass
                         else: # Moving to the side rule
@@ -222,6 +226,70 @@ class PixelWindow(tk.Canvas):
                         else:
                             self.tempMatrix[row][col] = Block.AIR
                             self.tempMatrix[row + 1][col] = Block.ACID
+                    case Block.LAVA:
+                        if (row + 1 >= self.__rows or (self.__matrix[row + 1][col] != Block.AIR and self.__matrix[row + 1][col] != Block.WATER)):
+                            if (col + 1 >= self.__cols):
+                                right = Block.LAVA
+                            else:
+                                right = self.tempMatrix[row][col + 1]
+
+                            if (col - 1 < 0):
+                                left = Block.LAVA
+                            else:
+                                left = self.tempMatrix[row][col - 1]
+                            
+
+                            if (right == Block.AIR or right == Block.WATER):
+                                if (left == Block.AIR or left  == Block.WATER):
+                                    result = randint(1, 2)
+                                    current = (right if result == 2 else left)
+                                    shift = (1 if result == 2 else -1)
+                                else:
+                                    current = right
+                                    shift = 1
+                            else:
+                                if (left == Block.AIR or left == Block.WATER):
+                                    current = left
+                                    shift = -1
+                                else:
+                                    current = Block.MOVED
+                                    shift = -1
+                            
+                            if (current != Block.MOVED):
+                                self.tempMatrix[row][col + shift] = (Block.STONE if current == Block.WATER else Block.LAVA)
+                                self.tempMatrix[row][col] = Block.AIR
+                            
+
+
+
+                            # if (right != Block.ACID):
+                            #     if (left != Block.ACID):
+                            #         result = randint(1, 2)
+                            #         self.tempMatrix[row][col + (1 if result == 2 else -1)] = (Block.AIR if (right if result == 2 else left) in self.disolvable else Block.ACID)
+                            #         self.tempMatrix[row][col] = Block.AIR
+                            #         if (result == 2):
+                            #             self.__matrix[row][col + 1] = Block.MOVED
+                            #     else:
+                            #         self.tempMatrix[row][col + 1] = (Block.AIR if right in self.disolvable else Block.ACID)
+                            #         self.tempMatrix[row][col] = Block.AIR
+                            #         self.__matrix[row][col + 1] = Block.MOVED
+                            # else:
+                            #     if (left != Block.ACID):
+                            #         self.tempMatrix[row][col - 1] = (Block.AIR if left in self.disolvable else Block.ACID)
+                            #         self.tempMatrix[row][col] = Block.AIR
+                            continue
+
+                        # Falling down rule
+                        match (self.__matrix[row + 1][col]):
+                            case Block.WATER:
+                                self.tempMatrix[row][col] = Block.AIR
+                                self.tempMatrix[row + 1][col] = Block.STONE
+                                self.__matrix[row + 1][col] = Block.MOVED
+                            case Block.AIR:
+                                self.tempMatrix[row][col] = Block.AIR
+                                self.tempMatrix[row + 1][col] = Block.LAVA
+                            case _:
+                                pass
                     case _:
                         pass
 
