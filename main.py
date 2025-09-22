@@ -11,6 +11,8 @@ class Block(IntEnum):
     WALL = 2
     WATER = 3
     ACID = 4
+    LAVA = 5
+    STONE = 6
 
 
 
@@ -21,13 +23,16 @@ class PixelWindow(tk.Canvas):
         self.__rows = rows
         self.__blockSize = blockSize
         self.__bg = background
+        self.__radius: int = 3
         self.__matrix: list[list[Block]] = []
         self.fillMatrix(self.__matrix)
         self.__colors = {
             Block.SAND : "yellow",
             Block.WALL: "grey",
             Block.WATER: "light blue",
-            Block.ACID: "#8FFE09"
+            Block.ACID: "#8FFE09",
+            Block.LAVA: "red",
+            Block.STONE: "#585858"
         }
         self.__curBlock = Block.SAND
         self.disolvable = set(Block._member_map_.values())
@@ -40,8 +45,6 @@ class PixelWindow(tk.Canvas):
            Block.WATER : set((Block.AIR, Block.ACID)) 
         }
 
-        # self.lighterMap[Block.SAND]: set[Block] = set((Block.AIR, Block.WATER, Block.ACID))
-
         super().__init__(master, width= columns * blockSize, height= rows * blockSize,
                          bg= background)
 
@@ -50,9 +53,14 @@ class PixelWindow(tk.Canvas):
     def createSelectionMenu(self) -> None:
         def changeBlock():
             self.__curBlock = Block(iVar.get())
+        
+        def changeRadius(a: object):
+            self.__radius = int(radiusScale.get())
 
         frame1 = tk.Frame(self.__master)
         frame1.pack()
+        frame2 = tk.Frame(self.__master)
+        frame2.pack()
         iVar = tk.IntVar(value= 1)
         airButton = tk.Radiobutton(frame1, text= "Air", variable= iVar, value= int(Block.AIR), command= changeBlock)
         airButton.pack(side= "left")
@@ -64,6 +72,15 @@ class PixelWindow(tk.Canvas):
         waterButton.pack(side= "left")
         acidButton = tk.Radiobutton(frame1, text= "Acid", variable= iVar, value= int(Block.ACID), command= changeBlock)
         acidButton.pack(side= "left")
+        lavaButton = tk.Radiobutton(frame1, text= "Lava", variable= iVar, value= int(Block.LAVA), command= changeBlock)
+        lavaButton.pack(side= "left")
+        stoneButton = tk.Radiobutton(frame1, text= "Stone", variable= iVar, value= int(Block.STONE), command= changeBlock)
+        stoneButton.pack(side= "left")
+
+        radiusText = tk.Label(frame2, text= "Radius: ")
+        radiusText.pack(side= "left")
+        radiusScale = tk.Scale(frame2, from_=1, to= 7, orient= tk.HORIZONTAL, command= changeRadius)
+        radiusScale.pack(side= "right")
 
     
 
@@ -73,11 +90,12 @@ class PixelWindow(tk.Canvas):
             matrix.append(row)
 
     def fillBlock(self, row: int, column: int, value: Block) -> None:
-        try:
-            if (self.__matrix[row][column] != Block.AIR and self.__curBlock != Block.AIR): return
-            self.__matrix[row][column] = value
-        except IndexError:
-            pass
+        for i in range(-self.__radius // 2, self.__radius // 2 + 1):
+            for j in range(-self.__radius // 2, self.__radius // 2 + 1):
+                if (i + column >= self.__cols or i + column < 0): break
+                if (j + row >= self.__rows or j + row < 0): continue
+                if (self.__matrix[row + j][column + i] != Block.AIR and self.__curBlock != Block.AIR): continue
+                self.__matrix[row + j][column + i] = value
     
     def liquidSpill(self, liquid: Block, row: int, col: int) -> None:
         if (col + 1 >= self.__cols):
@@ -228,11 +246,13 @@ class PixelWindow(tk.Canvas):
 
     def createBlock(self, e: tk.Event) -> None:
         self.unbind("<B1-Motion>")
+        
         row = e.y // self.getBlockSize()
         col = e.x // self.getBlockSize()
 
         self.fillBlock(row, col, self.__curBlock)
         self.bind("<B1-Motion>", self.createBlock)
+        self.bind("<Button-1>", self.createBlock)
 
 def terminate(e: tk.Event) -> None:
     global running
