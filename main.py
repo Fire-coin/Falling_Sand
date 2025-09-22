@@ -22,7 +22,6 @@ class PixelWindow(tk.Canvas):
         self.__cols = columns
         self.__rows = rows
         self.__blockSize = blockSize
-        self.__bg = background
         self.__radius: int = 1
         self.__matrix: list[list[Block]] = []
         self.fillMatrix(self.__matrix)
@@ -49,6 +48,7 @@ class PixelWindow(tk.Canvas):
                          bg= background)
 
         self.bind("<B1-Motion>", self.createBlock)
+        self.bind("<Button-1>", self.createBlock)
 
     def createSelectionMenu(self) -> None:
         def changeBlock():
@@ -220,12 +220,11 @@ class PixelWindow(tk.Canvas):
 
                         # Falling down rule
                         if (self.__matrix[row + 1][col] in self.disolvable):
-                            self.tempMatrix[row][col] = Block.AIR
                             self.tempMatrix[row + 1][col] = Block.AIR
                             self.__matrix[row + 1][col] = Block.MOVED
                         else:
-                            self.tempMatrix[row][col] = Block.AIR
                             self.tempMatrix[row + 1][col] = Block.ACID
+                        self.tempMatrix[row][col] = Block.AIR
                     case Block.LAVA:
                         if (row + 1 >= self.__rows or (self.__matrix[row + 1][col] != Block.AIR and self.__matrix[row + 1][col] != Block.WATER)):
                             if (col + 1 >= self.__cols):
@@ -258,25 +257,7 @@ class PixelWindow(tk.Canvas):
                             if (current != Block.MOVED):
                                 self.tempMatrix[row][col + shift] = (Block.STONE if current == Block.WATER else Block.LAVA)
                                 self.tempMatrix[row][col] = Block.AIR
-                            
-
-
-
-                            # if (right != Block.ACID):
-                            #     if (left != Block.ACID):
-                            #         result = randint(1, 2)
-                            #         self.tempMatrix[row][col + (1 if result == 2 else -1)] = (Block.AIR if (right if result == 2 else left) in self.disolvable else Block.ACID)
-                            #         self.tempMatrix[row][col] = Block.AIR
-                            #         if (result == 2):
-                            #             self.__matrix[row][col + 1] = Block.MOVED
-                            #     else:
-                            #         self.tempMatrix[row][col + 1] = (Block.AIR if right in self.disolvable else Block.ACID)
-                            #         self.tempMatrix[row][col] = Block.AIR
-                            #         self.__matrix[row][col + 1] = Block.MOVED
-                            # else:
-                            #     if (left != Block.ACID):
-                            #         self.tempMatrix[row][col - 1] = (Block.AIR if left in self.disolvable else Block.ACID)
-                            #         self.tempMatrix[row][col] = Block.AIR
+                        
                             continue
 
                         # Falling down rule
@@ -320,7 +301,6 @@ class PixelWindow(tk.Canvas):
 
         self.fillBlock(row, col, self.__curBlock)
         self.bind("<B1-Motion>", self.createBlock)
-        self.bind("<Button-1>", self.createBlock)
 
 def terminate(e: tk.Event) -> None:
     global running
