@@ -320,7 +320,7 @@ if (__name__ == "__main__"):
     pixelW.createSelectionMenu()
 
     root.bind("<Escape>", terminate)
-
+    root.protocol("WM_DELETE_WINDOW", lambda : terminate(tk.Event()))
     while (running):
         pixelW.simulate()
         pixelW.render()
